@@ -530,7 +530,7 @@ mysql8.0默认使用`utf8mb4`字符编码，中文按照偏旁部首排序。我
 
 ###### 内连接
 
-![sql-note_内连接_表](F:\云笔记\cloud-note\picture\sql-note_内连接_表.jpg)
+![sql-note_内连接_表](..\..\picture\sql-note_内连接_表.jpg)
 
 - 等值连接
 
@@ -554,17 +554,17 @@ mysql8.0默认使用`utf8mb4`字符编码，中文按照偏旁部首排序。我
 
 - 左连接
 
-  ![sql-note_左连接_表](F:\云笔记\cloud-note\picture\sql-note_左连接_表.jpg)
+  ![sql-note_左连接_表](..\..\picture\sql-note_左连接_表.jpg)
 
   
 
 - 右连接
 
-  ![sql-note_右连接_表](F:\云笔记\cloud-note\picture\sql-note_右连接_表.jpg)
+  ![sql-note_右连接_表](..\..\picture\sql-note_右连接_表.jpg)
 
 - 全外连接
 
-  ![sql-note_全外连接_表](F:\云笔记\cloud-note\picture\sql-note_全外连接_表.jpg)
+  ![sql-note_全外连接_表](..\..\picture\sql-note_全外连接_表.jpg)
 
 ###### 其它连接
 
