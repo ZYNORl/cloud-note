@@ -732,3 +732,430 @@ mysql8.0默认使用`utf8mb4`字符编码，中文按照偏旁部首排序。我
 
 ​	用于判断子查询结果的存在性。只要子查询返回了任何结果（包括`null`），就表示满足查询条件
 
+#### 通用表达式
+
+###### 表即变量（with）
+
+> 变量可以被重复使用；函数可以将代码模块化。与此类似，SQL中的通用表达式（简称CTE）也能够实现查询结果的重复利用，简化复杂的连接查询和子查询。```
+
+- `SQL`通用表达式的基本语法如下：
+
+  ```mysql
+  with cte_name(col1,col2,...) as (
+     subquery
+  )
+  select * from cte_name;
+  ```
+
+  1. `cte_name`指定了`CTE`的名称，后面是可选的字段名。
+  2. `as`关键字后面的子查询是`CTE`的定义语句，定义了它的表结构和数据。
+  3. 最后`select`是主查询语句，它可以引用前面定义的`CTE`。
+  4. 除了`select`，主查询语句也可以是`insert、update、delete`。
+
+- `CTE`示例如下
+
+  ```mysql
+  with dept_cost(dept_name,total) as
+  (
+     select dept_name,sum(salary*12+coalesce(bonus,0))
+     from employee e
+     join department d on (e.dept_id = d.dept_id)
+     group by dept_name
+  ),dept_avg_cost(avg_total) as
+  (
+     select sum(total)/count(*) avg_total
+     from dept_cost
+  )
+  select dept_cost.dept_name as '部门名称',dept_cost.total as '总成本',dept_avg_cost.avg_total as '平均成本'
+  from dept_cost
+  join dept_avg_cost
+  on (dept_cost.total > dept_avg_cost.avg_total);
+  ```
+
+  1. `dept_cost`是一个`CTE`，包含了每个部门的名称和成本。
+  2. `dept_avg_cost`也是一个`CTE`,引用前面定义的`dept_cost`
+  3. 最后在主查询，引用。
+
+###### 强大的递归（with recursive）
+
+- 递归`CTE`的基本语法如下:
+
+  ```mysql
+  with recursive cte_name as
+  (
+     cte_query_initial -- 初始化部分,用于创建初始结果集
+     union [all] -- 最后，用此进行所有递归查询的合并
+     cte_query_iterative -- 递归部分，可以对`CTE`进行自我引用。每一次递归查询语句执行的结果都会作为输入，传递给下一次查询。
+  ) select * from cte_name
+  ```
+
+- 案例一：生成数字序列
+
+  >以下查询通过递归`CTE`生成1~10的数字序列。
+
+  ```mysql
+  with recursive t(n) as
+  (
+     select 1 -- 初始化语句生成1，并作为递归部分的输入。
+     union all
+     select n+1 from t where n < 10 -- from t: 调用自身；where: 递归结束条件。
+  )
+  select n from t; -- 调用递归函数。
+  ```
+
+- 案例二：遍历层次结构
+
+  > 利用递归`CTE`生成一个组织结构网，显示每个员工从上到下的管理路劲：
+
+  ```mysql
+  with recursive employee_path(emp_id,emp_name,path) as
+  (
+     select emp_id,emp_name,emp_name as path
+     from employee
+     where manager is null -- 找到树的根
+     union all
+     select e.emp_id,e.emp_name,concat(ep.path,'->',e.emp_name) -- 连接上级
+     from employee_path ep
+     join employee e
+     on ep.emp_id = e.manager -- 找到下属
+  )
+  select emp_name as '员工姓名',path as '管理路径'
+  form employee_path
+  order by emp_id;
+  ```
+
+#### 窗口函数
+
+> 窗口函数可以像聚合函数一样对一组数据进行分析并返回结果，二者的不同之处在于，窗口函数不是将一组数据汇总到的单个结果，而是为每一行数据都返回一个结果。聚合函数和窗口函数的区别如下：
+>
+> ![sql-note_聚合和窗口的区别](..\..\picture\sql-note_聚合和窗口的区别.jpg)
+
+###### 窗口函数的定义
+
+- 函数初探
+
+  ```mysql
+  select sum(salary) as '月薪总和'
+  from employee
+  =>
+  月薪总合
+  ------
+  245800
+  select emp_name as '员工姓名',sum(salary) over() as '月薪总和' -- 关键字`over`表明sum是一个窗口函数。
+  from employee
+  =>
+  员工姓名|月薪总合
+  ------|------
+  刘备|245800
+  关羽|245800
+  ...
+  ```
+
+- 创建数据分区
+
+  >窗口函数`over`子句中的`partition by`选项用于定义分区，其作用类似于查询语句中的`group by`子句。
+
+  ```mysql
+  select emp_name '员工姓名',salary '月薪',dept_id '部门编号',
+  sum(salary) over(partition by dept_id) as '部门合计'
+  from employee;
+  =>
+  员工姓名|月薪|部门编号|部门合计
+  ------|-----|------|------
+  刘备|30000|1|80000
+  关羽|26000|1|80000
+  ...
+  ```
+
+- 分区内的排序
+
+  >窗口函数`over`子句中的`order by`选项用于指定==分区内==数据的排序方式，作用类似于查询语句中的`order by`。
+
+  ```mysql
+  select emp_name '姓名',salary '月薪',dept_id '部门编号',
+  rank() over(partition by dept_id order by salary desc) as '部门排名'
+  from employee;
+  =>
+  姓名|月薪|部门编号|部门排名
+  ---|---|--------|-------
+  刘备|30000|1|1
+  关羽|26000|1|2
+  ...
+  ```
+
+###### 指定窗口大小
+
+> 窗口函数`over`子句中的`frame_clause`选项用于指定一个移动的分析窗口，窗口总是位于分区的范围之内，是分区的一个子集。在指定了分析窗口之后，窗口函数不再基于分区进行分析，而是基于窗口大小内的数据进行分析。
+
+- `frame_start`选项用于定义窗口的起始位置
+  - `unbounded preceding`: 表示窗口从分区的第一行开始。
+  - `n preceding`: 表示窗口从当前行之前的第`N`行开始。
+  - `current row`：表示窗口从当前行开始。
+- `frame_end`选项用于定义窗口的结束位置
+  - `current row`：表示窗口从当前行结束。
+  - `m following`: 表示窗口到当前行之后的第M行结束。
+  - `unbounded following`: 表示窗口从分区的最后一行结束。
+
+###### 窗口函数分类
+
+- 聚合窗口函数
+
+  >许多常见的聚合函数也可以作为窗口函数使用，包括`avg()、sum()、count()、max()以及min()函数`。
+
+  下面以`avg`函数为案例，用于查询不同产品每个月以及截止当前月最近三个月的平均销售额。
+
+  ```mysql
+  select product as '产品',ym '年月',amount '销售额',
+  avg(amount) over(
+     partition by product
+     order by ym
+     rows between 2 preceding and current row
+  ) as '最近平均销售额'
+  from sales_monthly
+  order by product,ym;
+  ```
+
+- 排名窗口函数
+
+  > 排名窗口函数用于对数据进行分组排名，包括`row_number()、rank()、dense_rank()、precent_rank()`等函数。
+
+  以下查询使用4个不同的排名函数计算每个员工再其部门内的月薪排名：
+
+  ```mysql
+  select d.dept_name as '部门名称',e.emp_name as '姓名',e.salary as '月薪',
+  row_number()
+  over(partition by e.dept_id order by e.salary desc) as 'row_number',
+  rank()
+  over(partition by e.dept_id order by e.salary desc) as 'rank',
+  dense_rank()
+  over(partition by e.dept_id order by e.salary desc) as 'dense_rank',
+  precent_rank()
+  over(partition by e.dept_id order by e.salary desc) as 'precent_rank',
+  from employee e
+  join department d on (e.dept_id = d.dept_id);
+  
+  =>
+  
+  部门名称|姓名|月薪|row_number|rank|dense_rank|precent_rank
+  ...
+  研发部|哈哈|6500.00|6|6|6|0.65
+  研发部|嘿嘿|6500.00|7|6|6|0.65
+  研发部|哇哇|6000.00|8|8|7|0.875
+  ... 
+  ```
+
+- 取值窗口函数
+
+  - `lag`函数可以返回窗口内当前行之前的第`N`行数据。
+
+  - `lead`函数可以返回窗口内当前行之后的第`N`行数据。
+
+  - `first_value`函数可以返回窗口内第一行数据。
+
+  - `last_value`函数可以返回窗口内最后一行数据。
+
+  - `nth_value`函数可以返回窗口内第`N`行数据。
+
+  - 案例分析，统计各个产品每个月相比去年同月份的同比增长率。
+
+    ```mysql
+    select product as '产品',ym  as '年月',amount '销售额',
+    ((amount-lag(amount,12) over(parition by product order by ym))/lag(amount,12) over(parition by product order by ym))*100
+    as '同比增长率'
+    from sales_monthly
+    order by product,ym;
+    ```
+
+#### 数据的增删改
+
+###### 插入数据
+
+- 插入单行数据
+
+  ```mysql
+  insert into t(col1,col2,...)
+  values (value1,value2,...);
+  ```
+
+- 插入多行数据
+
+  > `insert into ...values ...`语句支持一次插入多行记录。
+
+  ```
+  insert into t(col1,col2,...)
+  values (value1,value2,...),
+  (value1,value2,...),
+  ,...,
+  values (value1,value2,...);
+  ```
+
+- 复制数据
+
+  下面，将‘研发部’的员工信息复制到`emp_devp`表中：
+
+  ```mysql
+  insert into emp_devp(emp_id,emp_name,sex,dept_id,manager,hire_date,job_id,salary,bonus,email)
+  select e.emp_id,e.emp_name,e.sex,e.dept_id,e.manager,e.hire_date,e.job_id,e.salary,e.bonus,e.email
+  from employee e
+  join department d on (d.dept_id = e.dept_id)
+  where dept_name = '研发部';
+  ```
+
+###### 更新数据
+
+- `update`语句的基本语法如下：
+
+  ```mysql
+  update t
+  set col1 = expr1,
+  col2 = expr2,
+  ...
+  [where condition];
+  -----------------
+  update emp_devp
+  set salary = salary + 1000,
+  bonus = 8000
+  where emp_name = '赵云';
+  ```
+
+- 关联（join）更新
+
+  ```mysql
+  update emp_devp ed
+  join employee e on (e.emp_id = ed.emp_id)
+  set ed.salary =  e.salary,
+  ed.bonus = e.bonus,
+  ed.email = e.email;
+  ```
+
+###### 删除数据
+
+- 单表删除
+
+  ```mysql
+  delete
+  from t
+  [where condition];
+  ---------------------
+  delete
+  from employee
+  where emp_name in ('张三','李四','王五');
+  ```
+
+- 关联删除
+
+  案例分析，删除`emp_devp`表中`emp_id`出现在员工表中的所有数据。
+
+  ```mysql
+  delete
+  from emp_devp
+  where emp_id in (select emp_id from employee);
+  ----------------------------------------------
+  delete ed
+  from emp_devp ed
+  join employee e on (ed.emp_id = e.emp_id);
+  ```
+
+###### 快速删除全表数据
+
+>如果我们想要删除表中的全部数据，数据量比较少时可以直接使用`delete`语句，但是，这种方式对于数据量很大的表所需的时间比较长。
+
+- 快速删除表中全部数据的`truncate`语句。
+
+  ```mysql
+  truncate table emp_devp;
+  ```
+
+- `delete`语句通过`where`子句删除指定的数据行。如果不指定过滤条件，将会删除所有的数据。`delete`属于数据操作语言（DML），删除数据后可以选择提交或者回滚。如果删除的数据较多，则其执行速度比较慢。
+
+- `Truncate`语句用于快速删除表中的所有数据，并且释放表的存储空间。`truncate`属于数据定义语言（DDL）,删除数据时默认提交，无法回滚。`truncate`语句相当于删除并重建表，通常其执行速度很快。
+
+###### 外键约束与级联查询
+
+- 违反外键约束
+
+  > 外键约束可以防止由于我们的误操作而导致数据不一致，从而维护数据的完整性。
+
+  ```mysql
+  -- 违反外键约束，职位不存在
+  update employee
+  set job_id = 11  # update语句将员工的职位设置为一个不存在的职位，违反了外键约束。
+  where emp_id = 1; 
+  -----------------
+  -- 违反外键约束，存在子记录
+  delete
+  from job # delete语句删除了一个职位，同样会到导致员工表中的记录指向一个不存在的职位。
+  where job_id = 1;
+  ```
+
+- 级联更新和删除
+
+  > - 子表中的外键约束引用的都是父表的主键字段，主键字段通常无须进行更新，或者我们应该避免使用可能被更新的字段作为主键。
+  > - 如果需要更新父表中的主键，或者删除父表中的记录，应该同时对子表中的数据进行更新或者删除。为了方便这一操作，数据库提供了级联更新和级联删除的功能。
+
+  ```mysql
+  create table t_parent(id integer primary key);
+  insert into t_parent(id) values (1);
+  --
+  create table t_child(
+     id integer primary key,
+     pid integer not null,
+     constraint fk1 foreign key (pid) references t_parent(id)
+     on update cascade 
+     on delete cascade
+  );
+  insert into t_child(id,pid) values(1,1);
+  insert into t_child(id,pid) values(2,1);
+  ------------------------------------------
+  update t_parent
+  set id  = 3
+  where id = 1;
+  select * from t_child;
+  id|pid
+  --|--
+  1|3
+  2|3
+  ------------------------------------------
+  delete
+  from t_parent
+  set id  = 3;
+  select * from t_child;
+  id|pid
+  --|--
+  null|null
+  ```
+
+  - `no action`=`restrict`-- 如果父表上的`update`或者`delete`语句违反了外键约束，则返回错误，数据库在语句执行时立即检查是否违反约束。
+  - `cascade`--  如果父表上执行`update`或者`delete`语句，级联更新或者删除子表上的记录。
+  - `set null`--  如果父表上执行`update`或者`delete`语句,将子表的外键字段设置为`null`。
+
+#### 视图
+
+> 视图和子查询和通用表表达式类似，都可以当作查询的数据源。但是，视图时存储在数据库中的对象，可以被重复使用。
+>
+> 建议不要再视图上使用`order by`,因为在视图上的查询不一定最终结果，会影响性能。
+
+###### 创建视图
+
+```mysql
+create view view_name
+as
+select_statement;
+----------------
+create view developers
+as
+select emp_id,emp_name
+from employee
+where dept_id = 4;
+-----------------
+select *
+from developers -- 创建视图之后，我们可以像普通表一样将其作为查询的数据源。
+where sex = '女'；
+```
+
+###### 删除视图
+
+```mysql
+drop view view_name;
+```
+
