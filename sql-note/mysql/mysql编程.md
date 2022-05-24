@@ -530,7 +530,7 @@ mysql8.0默认使用`utf8mb4`字符编码，中文按照偏旁部首排序。我
 
 ###### 内连接
 
-![sql-note_内连接_表](..\..\picture\sql-note_内连接_表.jpg)
+![sql-note_内连接_表](https://raw.githubusercontent.com/ZYNORl/cloud-note/main/picture/sql-note_内连接_表.jpg)
 
 - 等值连接
 
@@ -554,17 +554,17 @@ mysql8.0默认使用`utf8mb4`字符编码，中文按照偏旁部首排序。我
 
 - 左连接
 
-  ![sql-note_左连接_表](..\..\picture\sql-note_左连接_表.jpg)
+  ![sql-note_左连接_表](https://raw.githubusercontent.com/ZYNORl/cloud-note/main/picture/sql-note_左连接_表.jpg)
 
   
 
 - 右连接
 
-  ![sql-note_右连接_表](..\..\picture\sql-note_右连接_表.jpg)
+  ![sql-note_右连接_表](https://raw.githubusercontent.com/ZYNORl/cloud-note/main/picture/sql-note_右连接_表.jpg)
 
 - 全外连接
 
-  ![sql-note_全外连接_表](..\..\picture\sql-note_全外连接_表.jpg)
+  ![sql-note_全外连接_表](https://raw.githubusercontent.com/ZYNORl/cloud-note/main/picture/sql-note_全外连接_表.jpg)
 
 ###### 其它连接
 
@@ -828,7 +828,7 @@ mysql8.0默认使用`utf8mb4`字符编码，中文按照偏旁部首排序。我
 
 > 窗口函数可以像聚合函数一样对一组数据进行分析并返回结果，二者的不同之处在于，窗口函数不是将一组数据汇总到的单个结果，而是为每一行数据都返回一个结果。聚合函数和窗口函数的区别如下：
 >
-> ![sql-note_聚合和窗口的区别](..\..\picture\sql-note_聚合和窗口的区别.jpg)
+> ![sql-note_聚合和窗口的区别](https://raw.githubusercontent.com/ZYNORl/cloud-note/main/picture/sql-note_聚合和窗口的区别.jpg)
 
 ###### 窗口函数的定义
 
